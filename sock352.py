@@ -73,6 +73,8 @@ privateKeys = {}
 # this is 0xEC
 ENCRYPT = 236
 
+ENCRYPT_SIZE = 40 # Extra 40 bytes added to size of what is sent because of encrytion
+
 
 def init(UDPportTx, UDPportRx):
     # Sets the transmit port to 27182 (default) if its None or 0
@@ -200,7 +202,7 @@ class socket:
         my_privatekey = privateKeys[('*', '*')] # Gets private key
 
 
-        my_box = Box(my_privatekey, receiver_publickey)
+
 
 
         print "Host is :"
@@ -220,10 +222,26 @@ class socket:
         # first the packet is created using createPacket and passing in the apprpriate variables
         syn_packet = self.createPacket(flags=SOCK352_SYN, sequence_no=self.sequence_no)
 
-        nonce = nacl.utils.random(Box.NONCE_SIZE)
-        encrypted_message = my_box.encrypt(syn_packet, nonce)
+        if(self.encrypt):
+            print "Encrypting"
 
-        self.socket.sendto(encrypted_message, self.send_address)
+            #THIS CODE IS USED TO TEST IF IT IS ACTUALLY ENCRYPTING BY GIVING IT A FAKE PUBLIC KEY
+            #THE PROGRAM FAILS SO IT IS ACTUALLY ENCRYPTING SHIT!!!! YAAAY!!
+            #fake = 'e61d1c1ca7ef99f4522409542528e6fd4324a98396285afeb061c116a89ea60c'
+            #try:
+             #   decoded_public_key = nacl.public.PublicKey(fake, encoder=nacl.encoding.HexEncoder)
+            #except TypeError:
+            #    print "Error decoding the key"
+            #my_box = Box(my_privatekey, decoded_public_key)
+
+            my_box = Box(my_privatekey, receiver_publickey)
+            nonce = nacl.utils.random(Box.NONCE_SIZE)
+            encrypted_message = my_box.encrypt(syn_packet, nonce)
+            self.socket.sendto(encrypted_message, self.send_address)
+        else:
+            print "NOT ENCRYPTYING"
+            self.socket.sendto(syn_packet, self.send_address)
+
         # increments the sequence since it was consumed in creation of the SYN packet
         self.sequence_no += 1
 
@@ -233,7 +251,14 @@ class socket:
         while not received_handshake_packet:
             try:
                 # tries to receive a SYN/ACK packet from the server using recvfrom and unpacks it
-                (syn_ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+
+                if self.encrypt:
+                    (syn_ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH + ENCRYPT_SIZE)
+                    my_box = Box(my_privatekey, receiver_publickey)
+                    syn_ack_packet = my_box.decrypt(syn_ack_packet)
+                else:
+                    (syn_ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+
                 syn_ack_packet = struct.unpack(PACKET_HEADER_FORMAT, syn_ack_packet)
                 # if it receives a reset marked flag for any reason, abort the handshake
                 if syn_ack_packet[PACKET_FLAG_INDEX] == SOCK352_RESET:
@@ -266,7 +291,17 @@ class socket:
         self.is_connected = True
 
         # sends the ack packet to the server, as it assumes it's connected now
-        self.socket.sendto(ack_packet, self.send_address)
+        if (self.encrypt):
+            print "Encrypting"
+
+            my_box = Box(my_privatekey, receiver_publickey)
+            nonce = nacl.utils.random(Box.NONCE_SIZE)
+            encrypted_message = my_box.encrypt(ack_packet, nonce)
+            self.socket.sendto(encrypted_message, self.send_address)
+        else:
+            print "NOT ENCRYPTYING"
+            self.socket.sendto(ack_packet, self.send_address)
+
         print ("Client is now connected to the server at %s:%s" % (self.send_address[0], self.send_address[1]))
 
     # does nothing so far
@@ -318,11 +353,12 @@ class socket:
         while not got_connection_request:
             try:
                 # tries to receive a potential SYN packet and unpacks it
-                (syn_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH+250)
-
-                my_box = Box(my_privatekey, receiver_publickey)
-                syn_packet = my_box.decrypt(syn_packet)
-
+                if self.encryption:
+                    (syn_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH+ENCRYPT_SIZE)
+                    my_box = Box(my_privatekey, receiver_publickey)
+                    syn_packet = my_box.decrypt(syn_packet)
+                else:
+                    (syn_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
 
                 syn_packet = struct.unpack(PACKET_HEADER_FORMAT, syn_packet)
 
@@ -344,14 +380,28 @@ class socket:
         # increments the sequence number as it just consumed it when creating the SYN/ACK packet
         self.sequence_no += 1
         # sends the created packet to the address from which it received the SYN packet
-        self.socket.sendto(syn_ack_packet, addr)
+
+        if self.encryption:
+            my_box = Box(my_privatekey, receiver_publickey)
+            nonce = nacl.utils.random(Box.NONCE_SIZE)
+            encrypted_message = my_box.encrypt(syn_ack_packet, nonce)
+            self.socket.sendto(encrypted_message, addr)
+
+        else:
+            self.socket.sendto(syn_ack_packet, addr)
 
         # Receive the final ACK to complete the handshake and establish connection
         got_final_ack = False
         while not got_final_ack:
             try:
                 # keeps trying to receive the final ACK packet to finalize the connection
-                (ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+                if self.encryption:
+                    (ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH+ENCRYPT_SIZE)
+                    my_box = Box(my_privatekey, receiver_publickey)
+                    ack_packet = my_box.decrypt(ack_packet)
+                else:
+                    (ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+
                 ack_packet = struct.unpack(PACKET_HEADER_FORMAT, ack_packet)
                 # if the unpacked packet has the ACK flag set, we are done
                 if ack_packet[PACKET_FLAG_INDEX] == SOCK352_ACK:
@@ -587,6 +637,7 @@ class socket:
         print ("Finished receiving the data")
         # returns the data received
         return data_received
+
 
     # creates a generic packet to be sent using parameters that are
     # relevant to Part 1. The default values are specified above in case one or more parameters are not used
