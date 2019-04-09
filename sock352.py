@@ -60,7 +60,10 @@ global my_privatekey
 global receiver_publickey
 
 #encryption box for this machine
-global my_box
+global real_my_box
+
+#the on nonce to be used throughout encryption process
+global real_nonce
 
 # the encryption flag
 global ENCRYPT
@@ -177,6 +180,11 @@ class socket:
         # example code to parse an argument list (use option arguments if you want)
         global sock352portTx
         global ENCRYPT
+
+        global my_publickey
+        global my_privatekey
+        global receiver_publickey
+
         if (len(args) >= 1):
             (host, port) = args[0]
         if (len(args) >= 2):
@@ -222,25 +230,8 @@ class socket:
         # first the packet is created using createPacket and passing in the apprpriate variables
         syn_packet = self.createPacket(flags=SOCK352_SYN, sequence_no=self.sequence_no)
 
-        if(self.encrypt):
-            print "Encrypting"
 
-            #THIS CODE IS USED TO TEST IF IT IS ACTUALLY ENCRYPTING BY GIVING IT A FAKE PUBLIC KEY
-            #THE PROGRAM FAILS SO IT IS ACTUALLY ENCRYPTING SHIT!!!! YAAAY!!
-            #fake = 'e61d1c1ca7ef99f4522409542528e6fd4324a98396285afeb061c116a89ea60c'
-            #try:
-             #   decoded_public_key = nacl.public.PublicKey(fake, encoder=nacl.encoding.HexEncoder)
-            #except TypeError:
-            #    print "Error decoding the key"
-            #my_box = Box(my_privatekey, decoded_public_key)
-
-            my_box = Box(my_privatekey, receiver_publickey)
-            nonce = nacl.utils.random(Box.NONCE_SIZE)
-            encrypted_message = my_box.encrypt(syn_packet, nonce)
-            self.socket.sendto(encrypted_message, self.send_address)
-        else:
-            print "NOT ENCRYPTYING"
-            self.socket.sendto(syn_packet, self.send_address)
+        self.socket.sendto(syn_packet, self.send_address)
 
         # increments the sequence since it was consumed in creation of the SYN packet
         self.sequence_no += 1
@@ -252,12 +243,8 @@ class socket:
             try:
                 # tries to receive a SYN/ACK packet from the server using recvfrom and unpacks it
 
-                if self.encrypt:
-                    (syn_ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH + ENCRYPT_SIZE)
-                    my_box = Box(my_privatekey, receiver_publickey)
-                    syn_ack_packet = my_box.decrypt(syn_ack_packet)
-                else:
-                    (syn_ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+
+                (syn_ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
 
                 syn_ack_packet = struct.unpack(PACKET_HEADER_FORMAT, syn_ack_packet)
                 # if it receives a reset marked flag for any reason, abort the handshake
@@ -291,16 +278,14 @@ class socket:
         self.is_connected = True
 
         # sends the ack packet to the server, as it assumes it's connected now
-        if (self.encrypt):
-            print "Encrypting"
 
-            my_box = Box(my_privatekey, receiver_publickey)
-            nonce = nacl.utils.random(Box.NONCE_SIZE)
-            encrypted_message = my_box.encrypt(ack_packet, nonce)
-            self.socket.sendto(encrypted_message, self.send_address)
-        else:
-            print "NOT ENCRYPTYING"
-            self.socket.sendto(ack_packet, self.send_address)
+        self.socket.sendto(ack_packet, self.send_address)
+
+
+        global real_my_box
+        global real_nonce
+        real_my_box = Box(my_privatekey, receiver_publickey)
+        real_nonce = nacl.utils.random(Box.NONCE_SIZE)
 
         print ("Client is now connected to the server at %s:%s" % (self.send_address[0], self.send_address[1]))
 
@@ -310,6 +295,10 @@ class socket:
 
     # server code for establishing the connection
     def accept(self, *args):
+
+        global my_publickey
+        global my_privatekey
+        global receiver_publickey
 
         # example code to parse an argument list (use option arguments if you want)
         global ENCRYPT
@@ -353,12 +342,8 @@ class socket:
         while not got_connection_request:
             try:
                 # tries to receive a potential SYN packet and unpacks it
-                if self.encryption:
-                    (syn_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH+ENCRYPT_SIZE)
-                    my_box = Box(my_privatekey, receiver_publickey)
-                    syn_packet = my_box.decrypt(syn_packet)
-                else:
-                    (syn_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+
+                (syn_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
 
                 syn_packet = struct.unpack(PACKET_HEADER_FORMAT, syn_packet)
 
@@ -381,26 +366,16 @@ class socket:
         self.sequence_no += 1
         # sends the created packet to the address from which it received the SYN packet
 
-        if self.encryption:
-            my_box = Box(my_privatekey, receiver_publickey)
-            nonce = nacl.utils.random(Box.NONCE_SIZE)
-            encrypted_message = my_box.encrypt(syn_ack_packet, nonce)
-            self.socket.sendto(encrypted_message, addr)
 
-        else:
-            self.socket.sendto(syn_ack_packet, addr)
+        self.socket.sendto(syn_ack_packet, addr)
 
         # Receive the final ACK to complete the handshake and establish connection
         got_final_ack = False
         while not got_final_ack:
             try:
                 # keeps trying to receive the final ACK packet to finalize the connection
-                if self.encryption:
-                    (ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH+ENCRYPT_SIZE)
-                    my_box = Box(my_privatekey, receiver_publickey)
-                    ack_packet = my_box.decrypt(ack_packet)
-                else:
-                    (ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
+
+                (ack_packet, addr) = self.socket.recvfrom(PACKET_HEADER_LENGTH)
 
                 ack_packet = struct.unpack(PACKET_HEADER_FORMAT, ack_packet)
                 # if the unpacked packet has the ACK flag set, we are done
@@ -421,6 +396,10 @@ class socket:
 
         # updates the connected boolean to reflect that the server is now connected
         self.is_connected = True
+
+        global real_my_box
+        real_my_box = Box(my_privatekey, receiver_publickey)
+
 
         print("Server is now connected to the client at %s:%s" % (self.send_address[0], self.send_address[1]))
 
@@ -493,6 +472,13 @@ class socket:
     # method responsible for sending data packets (used by the sender)
     def send(self, buffer):
 
+        global my_publickey
+        global my_privatekey
+        global receiver_publickey
+
+        global real_my_box
+        global real_nonce
+
         # makes sure that the file length is set and has been communicated to the receiver
         if self.file_len == -1:
             self.socket.sendto(buffer, self.send_address)
@@ -538,7 +524,22 @@ class socket:
                 # tries to send the packet and catches any connection refused exception which might mean
                 # the connection was unexpectedly closed/broken
                 try:
-                    self.socket.sendto(self.data_packets[resend_start_index], self.send_address)
+                    print "Sending encrypted SHIT....."
+                    #my_box = Box(my_privatekey, receiver_publickey)
+
+                    data = self.data_packets[resend_start_index]
+                    payload = data[PACKET_HEADER_LENGTH:]
+                    header = data[:PACKET_HEADER_LENGTH]
+                    encrypted_message = real_my_box.encrypt(payload, real_nonce)
+                    self.socket.sendto(header + encrypted_message, self.send_address)
+
+
+
+
+                    #self.socket.sendto(self.data_packets[resend_start_index], self.send_address)
+
+
+
                 # Catch error 111 (Connection refused) in the case where the last ack
                 # was received by this sender and thus the connection was closed
                 # by the receiver but it happened between this sender's checking
@@ -616,7 +617,17 @@ class socket:
             try:
                 # receives the packet of header + maximum data size bytes (although it will be limited
                 # by the sender on the other side)
-                packet_received = self.socket.recv(PACKET_HEADER_LENGTH + bytes_to_receive)
+                print "Recieving encrypted shit and decrptying that ish"
+                packet_received  = self.socket.recv(PACKET_HEADER_LENGTH + ENCRYPT_SIZE + bytes_to_receive)
+                #my_box = Box(my_privatekey, receiver_publickey)
+                decrptyed_payload = real_my_box.decrypt(packet_received[PACKET_HEADER_LENGTH:])
+                packet_received = packet_received[:PACKET_HEADER_LENGTH] + decrptyed_payload
+
+
+
+                #packet_received = self.socket.recv(PACKET_HEADER_LENGTH + bytes_to_receive)
+
+
 
                 # sends the packet to another method to manage it and gets back the data in return
                 str_received = self.manage_recvd_data_packet(packet_received)
