@@ -208,10 +208,19 @@ class socket:
                 print "Welcome to Walmart, I Love you!"
                 receiver_publickey = publicKeys[key]
 
+        privatekey_found = False
+        for key in privateKeys:
+            if key == (host, str(portTx)):
+                print "FUcK You"
+                my_privatekey = privateKeys[key]
+                privatekey_found = True
+
+        if privatekey_found == False:
+            my_privatekey = privateKeys[('*', '*')]
+
+
         #NEED TO MAKE THIS WORK FOR ANY KEY CHAIN FILE (ASSUMING IT DOES NOT CONTAIN A * *)
-        my_privatekey = privateKeys[('*', '*')] # Gets private key
-
-
+        #my_privatekey = privateKeys[('*', '*')] # Gets private key
 
 
 
@@ -323,8 +332,18 @@ class socket:
                 print "Welcome to Walmart, I Love you!"
                 receiver_publickey = publicKeys[key]
 
+        privatekey_found = False
+        for key in privateKeys:
+            if key == ('localhost', str(portTx)):
+                print "FUcK You"
+                my_privatekey = privateKeys[key]
+                privatekey_found = True
+
+        if privatekey_found == False:
+            my_privatekey = privateKeys[('*', '*')]
+
         # NEED TO MAKE THIS WORK FOR ANY KEY CHAIN FILE (ASSUMING IT DOES NOT CONTAIN A * *)
-        my_privatekey = privateKeys[('*', '*')]  # Gets private key
+        #my_privatekey = privateKeys[('*', '*')]  # Gets private key
 
 
         global publicKeysHex
