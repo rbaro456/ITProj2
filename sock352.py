@@ -190,6 +190,8 @@ class socket:
         if (len(args) >= 2):
             if (args[1] == ENCRYPT):
                 self.encrypt = True
+            else:
+                self.encrypt = False
 
         global publicKeysHex
         print "Public key is "
@@ -305,6 +307,8 @@ class socket:
         if (len(args) >= 1):
             if (args[0] == ENCRYPT):
                 self.encryption = True
+            else:
+                self.encryption = False
         # your code goes here
 
 
@@ -456,10 +460,16 @@ class socket:
                     payload_len = len(buffer) % MAXIMUM_PAYLOAD_SIZE
 
             # creates the new packet with the appropriate header
-            new_packet = self.createPacket(flags=0x0,
+            if self.encrypt:
+                new_packet = self.createPacket(flags=0x0, opt_ptr=0x1,  # Sets options to 0x1 if it is encrypted
                                            sequence_no=self.sequence_no,
                                            ack_no=self.ack_no,
                                            payload_len=payload_len)
+            else:
+                new_packet = self.createPacket(flags=0x0, opt_ptr=0x0,     # Sets options to 0x0 if it is not encrypted
+                                               sequence_no=self.sequence_no,
+                                               ack_no=self.ack_no,
+                                               payload_len=payload_len)
             # consume the sequence and ack no as it was used to create the packet
             self.sequence_no += 1
             self.ack_no += 1
@@ -524,20 +534,16 @@ class socket:
                 # tries to send the packet and catches any connection refused exception which might mean
                 # the connection was unexpectedly closed/broken
                 try:
-                    print "Sending encrypted SHIT....."
-                    #my_box = Box(my_privatekey, receiver_publickey)
 
-                    data = self.data_packets[resend_start_index]
-                    payload = data[PACKET_HEADER_LENGTH:]
-                    header = data[:PACKET_HEADER_LENGTH]
-                    encrypted_message = real_my_box.encrypt(payload, real_nonce)
-                    self.socket.sendto(header + encrypted_message, self.send_address)
-
-
-
-
-                    #self.socket.sendto(self.data_packets[resend_start_index], self.send_address)
-
+                    if self.encrypt:
+                        print "Sending encrypted SHIT....."
+                        data = self.data_packets[resend_start_index]
+                        payload = data[PACKET_HEADER_LENGTH:]
+                        header = data[:PACKET_HEADER_LENGTH]
+                        encrypted_message = real_my_box.encrypt(payload, real_nonce)
+                        self.socket.sendto(header + encrypted_message, self.send_address)
+                    else:
+                        self.socket.sendto(self.data_packets[resend_start_index], self.send_address)
 
 
                 # Catch error 111 (Connection refused) in the case where the last ack
@@ -617,17 +623,14 @@ class socket:
             try:
                 # receives the packet of header + maximum data size bytes (although it will be limited
                 # by the sender on the other side)
-                print "Recieving encrypted shit and decrptying that ish"
-                packet_received  = self.socket.recv(PACKET_HEADER_LENGTH + ENCRYPT_SIZE + bytes_to_receive)
-                #my_box = Box(my_privatekey, receiver_publickey)
-                decrptyed_payload = real_my_box.decrypt(packet_received[PACKET_HEADER_LENGTH:])
-                packet_received = packet_received[:PACKET_HEADER_LENGTH] + decrptyed_payload
-
-
-
-                #packet_received = self.socket.recv(PACKET_HEADER_LENGTH + bytes_to_receive)
-
-
+                if self.encryption:
+                    print "Recieving encrypted shit and decrptying that ish"
+                    packet_received  = self.socket.recv(PACKET_HEADER_LENGTH + ENCRYPT_SIZE + bytes_to_receive)
+                    #my_box = Box(my_privatekey, receiver_publickey)
+                    decrptyed_payload = real_my_box.decrypt(packet_received[PACKET_HEADER_LENGTH:])
+                    packet_received = packet_received[:PACKET_HEADER_LENGTH] + decrptyed_payload
+                else:
+                    packet_received = self.socket.recv(PACKET_HEADER_LENGTH + bytes_to_receive)
 
                 # sends the packet to another method to manage it and gets back the data in return
                 str_received = self.manage_recvd_data_packet(packet_received)
@@ -652,12 +655,12 @@ class socket:
 
     # creates a generic packet to be sent using parameters that are
     # relevant to Part 1. The default values are specified above in case one or more parameters are not used
-    def createPacket(self, flags=0x0, sequence_no=0x0, ack_no=0x0, payload_len=0x0):
+    def createPacket(self, flags=0x0, opt_ptr=0x0, sequence_no=0x0, ack_no=0x0, payload_len=0x0):
         return struct.Struct(PACKET_HEADER_FORMAT).pack \
             (
                 0x1,  # version
                 flags,  # flags
-                0x0,  # opt_ptr
+                opt_ptr,  # opt_ptr
                 0x0,  # protocol
                 PACKET_HEADER_LENGTH,  # header_len
                 0x0,  # checksum
