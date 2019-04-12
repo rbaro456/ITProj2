@@ -1,0 +1,8 @@
+private    *      *   53fbcbb3b76e173f8241408b1f3dd8f9bf0d2a9f84d3db8fee2f38d0f2429729
+public localhost 8888 78c7227cf5c637fbc2066070b6fa2662b5c94bbac6fcb1ba5d77ecd61f718574
+public localhost 9999 78c7227cf5c637fbc2066070b6fa2662b5c94bbac6fcb1ba5d77ecd61f718574
+
+private	cd.cs.rutgers.edu 8888	bc88fdc7e6afa3a59e09ef974369c73a854572569bd7f6b0b3064846d8e8e928
+private	ls.cs.rutgers.edu 9999	fd35b9497844395b056788c1f8448ae3f5cc45dfaeec18ed938b7cefd609a0cc
+public	cd.cs.rutgers.edu 8888	fca6a033479f12beef6ad1a7cbee442bdefa5b1d9a5f47e3d3abd0853426e52c
+public 	ls.cs.rutgers.edu 9999	3198ce82c9e72a94bbd16443872598a80db2f8739548b43ab657e175d79dfb5b
