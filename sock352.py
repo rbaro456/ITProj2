@@ -188,26 +188,15 @@ class socket:
         if(len(args) == 1):    # Since the only argument is the (host, port). It will not encrypt files
             self.encrypt = False
 
-        if (len(args) >= 1):
+        if (len(args) >= 1):        #Get the host, port
             (host, port) = args[0]
         if (len(args) >= 2):
-            if (args[1] == ENCRYPT):
+            if (args[1] == ENCRYPT):  # Set encrypt flag if encryption argument is present
                 self.encrypt = True
             else:
-                self.encrypt = False
-
-        global publicKeysHex
-        print "Public key is "
-        print publicKeys
-
-        print type(publicKeys)
+                self.encrypt = False  # If there is no second argument then do not encrypt
 
 
-
-
-
-        print "Host is :"
-        print host
         # sets the send address to the tuple (address ip, transmit port)
         self.send_address = (host, portTx)  # MAYBE ERROR BC OF THE NEW *args CHANGED FROM ORIGINAL
 
@@ -279,70 +268,42 @@ class socket:
 
         print ("Client is now connected to the server at %s:%s" % (self.send_address[0], self.send_address[1]))
 
-        #print "My Address"
-       # print syssock.gethostname()
+
         if self.encrypt:
             if self.send_address[0] == 'localhost': # If the argument is sending to localhost then you must be on same machine
                 my_hostname = 'localhost'           # So look for localhost in the keychain file
             else:
                 my_hostname = syssock.gethostname() # Server is not on the same machine so look for the name of your machine
-                                                    # in keychain file
-           # print "Send Address"
-           # print self.send_address[0]
 
-          #  print "MY PORT IS TX"
-           # print str(portTx)
-
-            # NEED TO MAKE THIS WORK FOR ANY KEY CHAIN FILE!!!!
             publickey_found = False
             for key in publicKeys:  # Go through public keys and get the key with the matching outgoing port number
-                print "Key File"
-                print key
-                print "My Key"
-                print (my_hostname, str(portTx))
-                if key == (my_hostname, str(portTx)):
-                    print "FUcK You"
+
+                if key == (my_hostname, str(portTx)):  #  If find matching key then that is your public key
                     my_publickey = publicKeys[key]
                     publickey_found = True
 
-                if key != (my_hostname, str(portTx)):
-                #    print "Welcome to Walmart, I Love you!"
+                if key != (my_hostname, str(portTx)):  # If there is a public key that does not match then that is the other machine's key
                     receiver_publickey = publicKeys[key]
 
             if publickey_found == False:
-                my_publickey = publicKeys[('*', '*')]
+                my_publickey = publicKeys[('*', '*')]  # If no matching key is found then use default
 
-            #print "Private keys is"
-            print privateKeys
+
             privatekey_found = False
-            for key in privateKeys:
-             #   print "MEMEME"
-                print (my_hostname, str(portTx))
-             #   print key
-                if key == (my_hostname, str(portTx)):
-              #      print "FUcK You"
+            for key in privateKeys:     # Go through private keys
+
+                if key == (my_hostname, str(portTx)):  #  If find matching key then that is your private key
                     my_privatekey = privateKeys[key]
                     privatekey_found = True
 
             if privatekey_found == False:
-                my_privatekey = privateKeys[('*', '*')]
+                my_privatekey = privateKeys[('*', '*')]  # If no matching key is found then use default
 
-            # NEED TO MAKE THIS WORK FOR ANY KEY CHAIN FILE (ASSUMING IT DOES NOT CONTAIN A * *)
-            # my_privatekey = privateKeys[('*', '*')] # Gets private key
-
-            my_publicHex = my_publickey.encode(encoder=nacl.encoding.HexEncoder)
-            my_privateHex = my_privatekey.encode(encoder=nacl.encoding.HexEncoder)
-
-            print "My public key is"
-            print my_publicHex
-
-            print "My private key is"
-            print my_privateHex
 
             global real_my_box
             global real_nonce
-            real_my_box = Box(my_privatekey, receiver_publickey)
-            real_nonce = nacl.utils.random(Box.NONCE_SIZE)
+            real_my_box = Box(my_privatekey, receiver_publickey)  # create encryption box
+            real_nonce = nacl.utils.random(Box.NONCE_SIZE)  # Create the single nonce instance
 
     # does nothing so far
     def listen(self, backlog):
@@ -362,28 +323,12 @@ class socket:
         # example code to parse an argument list (use option arguments if you want)
         global ENCRYPT
         if (len(args) >= 1):
-            if (args[0] == ENCRYPT):
+            if (args[0] == ENCRYPT):    # Set encrypt flag if encryption argument is present
                 self.encryption = True
             else:
                 self.encryption = False
-        # your code goes here
 
         host = syssock.gethostname()
-
-        print "HOST NAME IS:"
-        print host
-
-        print host
-
-
-
-        global publicKeysHex
-        print "Public key is "
-        print publicKeysHex
-
-        global privateKeysHex
-        print "Private key is "
-        print privateKeysHex
 
         # makes sure again that the server is not already connected
         # because part 1 supports a single connection only
@@ -452,21 +397,7 @@ class socket:
         self.is_connected = True
 
 
-
-
-
         print("Server is now connected to the client at %s:%s" % (self.send_address[0], self.send_address[1]))
-
-    #    print "My Address"
-        #   print syssock.gethostname()
-
-        #   print host
-
-        #   print "MY PORT IS TX"
-        #   print str(portTx)
-
-        #   print "Send Address"
-        #   print self.send_address[0]
 
         if self.encryption:
             my_host = syssock.gethostname()
@@ -474,49 +405,31 @@ class socket:
             if self.send_address[0] == '127.0.0.1': # If the server is sending to localhost then the server must also be on localhost
                 my_host = 'localhost'
 
-            # NEED TO MAKE THIS WORK FOR ANY KEY CHAIN FILE!!!!
             publickey_found = False
             for key in publicKeys:  # Go through public keys and get the key with the matching outgoing port number
-                print key  # HARD CODED FOR IT TO ONLY WORK WITH localhost: Got to fix.....later...maybe...fuck that
-                print (my_host, str(portTx))
-                if key == (my_host, str(portTx)):
-                    #        print "FUcK You"
+
+                if key == (my_host, str(portTx)):   #  If find matching key then that is your public key
                     my_publickey = publicKeys[key]
                     publickey_found = True
 
-                if key != (my_host, str(portTx)):
-                    #          print "Welcome to Walmart, I Love you!"
+                if key != (my_host, str(portTx)):   # If there is a public key that does not match then that is the other machine's key
                     receiver_publickey = publicKeys[key]
 
-            if publickey_found == False:
+            if publickey_found == False:    # If no matching key is found then use default
                 my_publickey = publicKeys[('*', '*')]
 
             privatekey_found = False
             for key in privateKeys:
-                if key == (my_host, str(portTx)):
-                    #        print "FUcK You"
+                if key == (my_host, str(portTx)):  #  If find matching key then that is your private key
                     my_privatekey = privateKeys[key]
                     privatekey_found = True
 
             if privatekey_found == False:
-                my_privatekey = privateKeys[('*', '*')]
-
-            # NEED TO MAKE THIS WORK FOR ANY KEY CHAIN FILE (ASSUMING IT DOES NOT CONTAIN A * *)
-            # my_privatekey = privateKeys[('*', '*')]  # Gets private key
-
-            my_publicHex = my_publickey.encode(encoder=nacl.encoding.HexEncoder)
-            my_privateHex = my_privatekey.encode(encoder=nacl.encoding.HexEncoder)
-
-            print "My public key is"
-            print my_publicHex
-
-            print "My private key is"
-            print my_privateHex
-
+                my_privatekey = privateKeys[('*', '*')] # If there is no matching private key, use default
 
 
             global real_my_box
-            real_my_box = Box(my_privatekey, receiver_publickey)
+            real_my_box = Box(my_privatekey, receiver_publickey)  # Create encryption box
 
 
         return self, addr
@@ -648,15 +561,14 @@ class socket:
                 try:
 
                     if self.encrypt:
-                        print "Sending encrypted SHIT....."
+                        print "Sending encrypted packet....."
                         data = self.data_packets[resend_start_index]
-                        payload = data[PACKET_HEADER_LENGTH:]
+                        payload = data[PACKET_HEADER_LENGTH:]  # Separate payload and header
                         header = data[:PACKET_HEADER_LENGTH]
-                        encrypted_message = real_my_box.encrypt(payload, real_nonce)
-                        print self.send_address
-                        self.socket.sendto(header + encrypted_message, self.send_address)
+                        encrypted_message = real_my_box.encrypt(payload, real_nonce)  # Encrypt the payload
+                        self.socket.sendto(header + encrypted_message, self.send_address)  # Send header with encrypted payload
                     else:
-                        self.socket.sendto(self.data_packets[resend_start_index], self.send_address)
+                        self.socket.sendto(self.data_packets[resend_start_index], self.send_address) # Sends without encrypting
 
 
                 # Catch error 111 (Connection refused) in the case where the last ack
@@ -737,13 +649,12 @@ class socket:
                 # receives the packet of header + maximum data size bytes (although it will be limited
                 # by the sender on the other side)
                 if self.encryption:
-                    print "Recieving encrypted shit and decrptying that ish"
-                    packet_received  = self.socket.recv(PACKET_HEADER_LENGTH + ENCRYPT_SIZE + bytes_to_receive)
-                    #my_box = Box(my_privatekey, receiver_publickey)
-                    decrptyed_payload = real_my_box.decrypt(packet_received[PACKET_HEADER_LENGTH:])
-                    packet_received = packet_received[:PACKET_HEADER_LENGTH] + decrptyed_payload
+                    print "Decrypting Recieved Data....."
+                    packet_received  = self.socket.recv(PACKET_HEADER_LENGTH + ENCRYPT_SIZE + bytes_to_receive) # Recieve encrypted data
+                    decrptyed_payload = real_my_box.decrypt(packet_received[PACKET_HEADER_LENGTH:])  # decrypt only the payload
+                    packet_received = packet_received[:PACKET_HEADER_LENGTH] + decrptyed_payload # concatenate packet header with decrpyted payload
                 else:
-                    packet_received = self.socket.recv(PACKET_HEADER_LENGTH + bytes_to_receive)
+                    packet_received = self.socket.recv(PACKET_HEADER_LENGTH + bytes_to_receive)  # recieve packet without encryption
 
                 # sends the packet to another method to manage it and gets back the data in return
                 str_received = self.manage_recvd_data_packet(packet_received)
@@ -788,9 +699,7 @@ class socket:
     # Manages a packet received based on the flag
     def manage_recvd_data_packet(self, packet):
         packet_header = packet[:PACKET_HEADER_LENGTH]
-        print sys.getsizeof(packet_header)
         packet_data = packet[PACKET_HEADER_LENGTH:]
-        print sys.getsizeof(packet_data)
         packet_header = struct.unpack(PACKET_HEADER_FORMAT, packet_header)
         packet_header_flag = packet_header[PACKET_FLAG_INDEX]
 
